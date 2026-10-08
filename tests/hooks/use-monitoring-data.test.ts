@@ -711,6 +711,51 @@ describe("useMonitoringData", () => {
     expect(mockToastSuccess).toHaveBeenCalledWith("VACUUM completed on public.users");
   });
 
+  // ── runMaintenance keeps rows, and drops them when the next result has none ─
+
+  test("runMaintenance exposes the rows a result carried, then clears them", async () => {
+    let calls = 0;
+    mockGlobalFetch({
+      "/api/db/monitoring": { ok: true, json: mockMonitoringResponse },
+      "/api/db/maintenance": () => {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            ok: true,
+            json: {
+              success: true,
+              message: "Server info retrieved (1 metrics)",
+              rows: [{ section: "Server", key: "redis_version", value: "7.2.4" }],
+              fields: ["section", "key", "value"],
+            },
+          };
+        }
+        return { ok: true, json: { success: true, message: "VACUUM completed" } };
+      },
+    });
+
+    const { result } = renderHook(() => useMonitoringData(mockConnection));
+
+    await waitFor(() => {
+      expect(result.current.data).not.toBeNull();
+    });
+
+    await act(async () => {
+      await result.current.runMaintenance("analyze");
+    });
+
+    expect(result.current.maintenanceReport).toEqual({
+      rows: [{ section: "Server", key: "redis_version", value: "7.2.4" }],
+      fields: ["section", "key", "value"],
+    });
+
+    await act(async () => {
+      await result.current.runMaintenance("vacuum");
+    });
+
+    expect(result.current.maintenanceReport).toBeNull();
+  });
+
   // ── runMaintenance uses fallback when result.message empty ─────────────
 
   test("runMaintenance uses fallback when result.message is empty", async () => {
