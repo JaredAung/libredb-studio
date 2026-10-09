@@ -285,6 +285,10 @@ export function useMonitoringData(
       const currentConnection = connectionRef.current;
       if (!currentConnection) return false;
 
+      // Read before the await: the table belongs to the selection that asked for
+      // it, not to whichever one is on screen when the reply arrives.
+      const selectionSeq = selectionRef.current;
+
       try {
         const res = await appFetch("/api/db/maintenance", {
           method: "POST",
@@ -313,7 +317,7 @@ export function useMonitoringData(
         // keeps the old reading: only an explicit `false` is a refusal.
         if (result.success === false) {
           toast.error(result.message || `${type} failed`);
-          setReportState({ selection: selectionRef.current, report: null });
+          setReportState({ selection: selectionSeq, report: null });
           // Refreshed anyway: a refused operation can still have moved part of the state
           // it was asked about (Oracle rebuilds index by index), so the panels must not
           // keep showing what was true before the attempt.
@@ -322,7 +326,7 @@ export function useMonitoringData(
         }
 
         toast.success(result.message || `${type} completed successfully`);
-        setReportState({ selection: selectionRef.current, report: maintenanceReportFrom(result) });
+        setReportState({ selection: selectionSeq, report: maintenanceReportFrom(result) });
 
         // Refresh data after maintenance
         await fetchData();
@@ -331,7 +335,7 @@ export function useMonitoringData(
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : `Failed to run ${type}`;
         toast.error(errorMessage);
-        setReportState({ selection: selectionRef.current, report: null });
+        setReportState({ selection: selectionSeq, report: null });
         return false;
       }
     },
