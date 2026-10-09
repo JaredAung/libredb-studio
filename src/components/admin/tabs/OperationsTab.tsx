@@ -754,9 +754,7 @@ export function OperationsTab() {
         </div>
       )}
 
-      {maintenanceReport?.rows != null && maintenanceReport.rows.length > 0 && (
-        <MaintenanceResultTable report={maintenanceReport} />
-      )}
+      {maintenanceReport && <MaintenanceResultTable report={maintenanceReport} />}
 
       {/* Tables + Sessions Split */}
       <div className="grid gap-6 md:grid-cols-2">
