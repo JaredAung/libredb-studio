@@ -2939,12 +2939,21 @@ describe("OracleProvider", () => {
                 "SERIAL#": 2,
                 USERNAME: "APP",
                 STATUS: "ACTIVE",
+                STATE: "WAITING",
                 WAIT_CLASS: "Application",
                 EVENT: "enq: TX",
                 DURATION_SECS: 1,
               },
               { SID: 3, "SERIAL#": 3, USERNAME: "APP", STATUS: "KILLED", DURATION_SECS: 1 },
-              { SID: 4, "SERIAL#": 4, USERNAME: "APP", STATUS: "active", WAIT_CLASS: "idle", DURATION_SECS: 1 },
+              {
+                SID: 4,
+                "SERIAL#": 4,
+                USERNAME: "APP",
+                STATUS: "active",
+                STATE: "WAITING",
+                WAIT_CLASS: "idle",
+                DURATION_SECS: 1,
+              },
             ],
             metaData: [{ name: "SID" }],
           };
@@ -2954,6 +2963,43 @@ describe("OracleProvider", () => {
       await provider.connect();
       const sessions = await provider.getActiveSessions();
       expect(sessions.map((session) => session.activity)).toEqual(["idle", "waiting", "other", "active"]);
+    });
+
+    test("an on-CPU session keeps its last User I/O wait and reads active, and STATE WAITING reads waiting", async () => {
+      mockExecuteFn = async (sql: string) => {
+        if (sql.toUpperCase().includes("V$SESSION") && sql.toUpperCase().includes("SERIAL#")) {
+          return {
+            rows: [
+              {
+                SID: 1,
+                "SERIAL#": 1,
+                USERNAME: "APP",
+                STATUS: "ACTIVE",
+                STATE: "WAITED SHORT TIME",
+                WAIT_CLASS: "User I/O",
+                EVENT: "db file sequential read",
+                DURATION_SECS: 1,
+              },
+              {
+                SID: 2,
+                "SERIAL#": 2,
+                USERNAME: "APP",
+                STATUS: "ACTIVE",
+                STATE: "WAITING",
+                WAIT_CLASS: "User I/O",
+                EVENT: "db file sequential read",
+                DURATION_SECS: 1,
+              },
+            ],
+            metaData: [{ name: "SID" }],
+          };
+        }
+        return defaultExecute(sql);
+      };
+      await provider.connect();
+      const sessions = await provider.getActiveSessions();
+      expect(sessions.map((session) => session.activity)).toEqual(["active", "waiting"]);
+      expect(sessions.map((session) => session.state)).toEqual(["ACTIVE", "ACTIVE"]);
     });
 
     test("formats hour, minute, and second durations and defaults missing fields", async () => {

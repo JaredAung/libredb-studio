@@ -172,7 +172,7 @@ const ACTIVE_SESSIONS_BODY_SQL = `SELECT * FROM (
                  SUBSTR(sq.SQL_TEXT, 1, 500) AS QUERY,
                  s.LOGON_TIME,
                  ROUND((SYSDATE - s.LOGON_TIME) * 86400) AS DURATION_SECS,
-                 s.WAIT_CLASS, s.EVENT
+                 s.STATE, s.WAIT_CLASS, s.EVENT
           FROM V$SESSION s
           LEFT JOIN V$SQL sq ON s.SQL_ID = sq.SQL_ID AND s.SQL_CHILD_NUMBER = sq.CHILD_NUMBER
           WHERE s.TYPE = 'USER'
@@ -180,16 +180,22 @@ const ACTIVE_SESSIONS_BODY_SQL = `SELECT * FROM (
         )`;
 
 /**
- * `V$SESSION.STATUS`, with a wait counted only while the session is `ACTIVE` and the wait class is
- * a block. `INACTIVE` sits on an idle wait class (`SQL*Net message from client`), and `CPU` is the
- * session doing work. Neither is a wait.
+ * `V$SESSION.STATUS`, with a wait counted only while the session is `ACTIVE`, `STATE` is
+ * `WAITING`, and the wait class is a block. `EVENT` and `WAIT_CLASS` keep the last wait after
+ * the session is back on CPU (`WAITED SHORT TIME`, `WAITED KNOWN TIME`, `WAITED UNKNOWN TIME`),
+ * and there is no CPU wait class. `INACTIVE` sits on an idle wait (`SQL*Net message from client`).
  */
-function oracleSessionActivity(status: string, waitClass: string | undefined): SessionActivity {
+function oracleSessionActivity(
+  status: string,
+  state: string | undefined,
+  waitClass: string | undefined,
+): SessionActivity {
   const word = status.toUpperCase();
   if (word === "INACTIVE") return "idle";
   if (word === "ACTIVE") {
+    const waitingNow = (state ?? "").toUpperCase() === "WAITING";
     const wait = (waitClass ?? "").toUpperCase();
-    if (wait !== "" && wait !== "IDLE" && wait !== "CPU") return "waiting";
+    if (waitingNow && wait !== "" && wait !== "IDLE") return "waiting";
     return "active";
   }
   return "other";
@@ -3211,6 +3217,7 @@ export class OracleProvider extends SQLBaseProvider {
           state: String(r.STATUS || "unknown"),
           activity: oracleSessionActivity(
             String(r.STATUS || "unknown"),
+            r.STATE ? String(r.STATE) : undefined,
             r.WAIT_CLASS ? String(r.WAIT_CLASS) : undefined,
           ),
           query: String(r.QUERY || r.SQL_ID || ""),
