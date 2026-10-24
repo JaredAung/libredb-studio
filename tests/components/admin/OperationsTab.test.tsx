@@ -1922,6 +1922,24 @@ describe("OperationsTab", () => {
     expect(renderResult!.getByText("Sessions")).not.toBeNull();
   });
 
+  // The sentence above reads `sessionsUnavailable` itself. The four cards read it only through the
+  // boolean passed to `sessionActivityFigure`. `activeSessions` stays off this payload so N/A depends
+  // on that argument: a list of unclassified rows would read N/A with the flag false.
+  test("a refused activeSessions read leaves the four cards at N/A", async () => {
+    monitoringOverride = {
+      data: { tables: defaultTables, errors: { activeSessions: "Unknown table 'information_schema.PROCESSLIST'." } },
+    };
+    let renderResult: ReturnType<typeof render>;
+    await act(async () => {
+      renderResult = render(<OperationsTab />);
+    });
+
+    expect(renderResult!.getByTestId("operations-session-stat-active").textContent).toBe("N/A");
+    expect(renderResult!.getByTestId("operations-session-stat-idle").textContent).toBe("N/A");
+    expect(renderResult!.getByTestId("operations-session-stat-in-tx").textContent).toBe("N/A");
+    expect(renderResult!.getByTestId("operations-session-stat-wait").textContent).toBe("N/A");
+  });
+
   test("an answered empty session list keeps the empty-state copy", async () => {
     monitoringOverride = { data: { activeSessions: [], tables: defaultTables } };
     let renderResult: ReturnType<typeof render>;
