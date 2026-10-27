@@ -1841,7 +1841,7 @@ describe("MongoDBProvider", () => {
       expect(sessions[0].applicationName).toBe("mongosh");
       expect(sessions[0].clientAddr).toBe("10.0.0.1");
       expect(sessions[0].state).toBe("active");
-      expect(sessions[0].activity).toBe("active");
+      expect(sessions[0].activity).toBe("waiting");
       expect(sessions[0].query).toContain("find");
       expect(sessions[0].duration).toBe("500ms");
       expect(sessions[0].durationMs).toBe(500);

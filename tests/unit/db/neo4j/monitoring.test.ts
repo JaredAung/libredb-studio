@@ -116,11 +116,13 @@ describe("isoDurationMs", () => {
 });
 
 describe("toActiveSessions", () => {
-  // The cards count `activity`. `Running` is a statement in flight, so it is `active`; the other statuses
-  // keep their own words on the row, lower-cased, and count as `other`, neither active nor idle.
+  // The cards count `activity`. `Running` is a statement in flight, so it is `active`; a `Blocked` one waits on
+  // another transaction's lock, so it is `waiting`. The other statuses keep their own words on the row,
+  // lower-cased, and count as `other`, neither active nor idle.
   test.each([
     ["Running", "active", "active"],
-    ["Blocked", "blocked", "other"],
+    ["Blocked", "blocked", "waiting"],
+    ["Blocked by: [neo4j-transaction-2]", "blocked by: [neo4j-transaction-2]", "waiting"],
     ["Closing", "closing", "other"],
     ["Terminated", "terminated", "other"],
   ] as const)("maps the transaction status %s to the row state %s and the card %s", (status, state, activity) => {

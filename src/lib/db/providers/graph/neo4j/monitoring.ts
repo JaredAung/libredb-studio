@@ -142,11 +142,13 @@ function sessionState(status: string): string {
 }
 
 /**
- * The card a transaction belongs on. `Running` is a statement in flight (`active`); any other status is `other`,
- * so a blocked, closing or terminated transaction is counted as neither active nor idle.
+ * The card a transaction belongs on. `Running` is a statement in flight (`active`). `Blocked` waits on another
+ * transaction's lock (`waiting`); the server may name the blockers after the word, so it matches as a prefix. Any
+ * other status is `other`, so a closing or terminated transaction is counted as neither active nor idle.
  */
 function sessionActivity(status: string): SessionActivity {
-  return status === "Running" ? "active" : "other";
+  if (status === "Running") return "active";
+  return status.startsWith("Blocked") ? "waiting" : "other";
 }
 
 /** One session per transaction, its transaction id as the pid. */

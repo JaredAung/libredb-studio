@@ -3002,6 +3002,20 @@ describe("OracleProvider", () => {
       expect(sessions.map((session) => session.state)).toEqual(["ACTIVE", "ACTIVE"]);
     });
 
+    test("the sessions query selects s.STATE, which the waiting rule reads", async () => {
+      const queries: string[] = [];
+      mockExecuteFn = async (sql: string) => {
+        queries.push(sql);
+        return defaultExecute(sql);
+      };
+      await provider.connect();
+      await provider.getActiveSessions();
+      const sessionsSql = queries.find(
+        (sql) => sql.toUpperCase().includes("V$SESSION") && sql.toUpperCase().includes("SERIAL#"),
+      );
+      expect(sessionsSql).toMatch(/\bs\.STATE\b/);
+    });
+
     test("formats hour, minute, and second durations and defaults missing fields", async () => {
       const sessionRow = (sid: number, secs: number, overrides: Record<string, unknown> = {}) => ({
         SID: sid,
