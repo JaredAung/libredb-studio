@@ -27,12 +27,12 @@
 
 ## Overview
 
-LibreDB Studio provides a RESTful API for database management operations. The API supports PostgreSQL, MySQL, SQLite, libSQL, DuckDB, Oracle, Db2 LUW, SQL Server, MongoDB, Couchbase, Firestore, ClickHouse, Apache Druid, Elasticsearch, OpenSearch, Trino, BigQuery, Snowflake, Apache Spark, Apache Cassandra, Redis, Prometheus, InfluxDB (InfluxQL), InfluxDB 3 (SQL), Apache Kafka, etcd, Neo4j, Milvus, Qdrant, Oxia, Databend, S3-compatible object storage, Kubernetes, OPC UA, MTConnect, Modbus, NETCONF, SNMP and Sparkplug B.
+LibreDB Studio provides a RESTful API for database management operations. The API supports PostgreSQL, MySQL, SQLite, libSQL, DuckDB, Oracle, Db2 LUW, SQL Server, MongoDB, Couchbase, Firestore, ClickHouse, Apache Druid, Elasticsearch, OpenSearch, Trino, BigQuery, Snowflake, Apache Spark, Apache Cassandra, Redis, Prometheus, InfluxDB (InfluxQL), InfluxDB 3 (SQL), Apache Kafka, etcd, Neo4j, Milvus, Qdrant, Weaviate, Oxia, Databend, S3-compatible object storage, Kubernetes, OPC UA, MTConnect, Modbus, NETCONF, SNMP and Sparkplug B.
 
 ### Key Features
 
 - **JWT Authentication** - Secure token-based authentication stored in HTTP-only cookies
-- **Multi-Database Support** - Forty-one engines: PostgreSQL, MySQL, SQLite, libSQL, DuckDB, Oracle, Db2 LUW, SQL Server, MongoDB, Couchbase, Firestore, ClickHouse, Apache Druid, Elasticsearch, OpenSearch, Trino, BigQuery, Snowflake, Apache Spark, Apache Cassandra, Redis, Prometheus, InfluxDB (InfluxQL), InfluxDB 3 (SQL), Apache Kafka, MQTT, RabbitMQ, etcd, Neo4j, Milvus, Qdrant, Oxia, Databend, S3-compatible object storage, Kubernetes, OPC UA, MTConnect, Modbus, NETCONF, SNMP, NETCONF, Sparkplug B
+- **Multi-Database Support** - Forty-two engines: PostgreSQL, MySQL, SQLite, libSQL, DuckDB, Oracle, Db2 LUW, SQL Server, MongoDB, Couchbase, Firestore, ClickHouse, Apache Druid, Elasticsearch, OpenSearch, Trino, BigQuery, Snowflake, Apache Spark, Apache Cassandra, Redis, Prometheus, InfluxDB (InfluxQL), InfluxDB 3 (SQL), Apache Kafka, MQTT, RabbitMQ, etcd, Neo4j, Milvus, Qdrant, Weaviate, Oxia, Databend, S3-compatible object storage, Kubernetes, OPC UA, MTConnect, Modbus, NETCONF, SNMP, NETCONF, Sparkplug B
 - **AI-Powered Insights** - EXPLAIN explanations, query-safety analysis and schema docs, streamed
 - **Real-time Health Monitoring** - Database metrics and performance insights
 
@@ -201,8 +201,16 @@ Get current authenticated user information.
 }
 ```
 
+**Response (503 Service Unavailable):**
+```json
+{
+  "error": "Account store unavailable",
+  "code": "ACCOUNT_STORE_UNAVAILABLE"
+}
+```
+
 > The `user` object is the JWT session payload (`role`, `username`, `sessionVersion` for an account in the server store, and `idpSubject` and `idpIssuer` for an OIDC sign-in, see [OIDC.md](./OIDC.md#session-identity)). It is a public route in the middleware but self-checks the cookie, returning `{ "authenticated": false }` when absent/invalid.
-> With `STORAGE_PROVIDER=sqlite` or `postgres` and local sign-in, a session whose stored account was disabled, deleted, demoted or password-reset since it was issued also answers `401`.
+> With `STORAGE_PROVIDER=sqlite` or `postgres` and local sign-in, a session whose stored account was disabled, deleted, demoted or password-reset since it was issued also answers `401`. If the account store suffers a read outage, it answers `503 ACCOUNT_STORE_UNAVAILABLE` while preserving the session cookie (#1942).
 
 #### GET /api/auth/totp
 
@@ -517,7 +525,7 @@ Under that cap, a result of exactly `limit` rows has `wasLimited: false` and `ha
 A bound the provider reported sets `wasLimited` and never `hasMore`, because no `offset` can advance a bound the server did not write.
 A statement the server returned **untouched** — one carrying its own `LIMIT n`, or one whose end the limiter declined to cut into — runs identically at every `offset`, because the requested offset is discarded along with the rewrite. `hasMore` is `false` for those however many rows come back, and re-requesting with a higher `offset` would return the same rows again. Where `hasMore` is `true`, re-request with `offset` advanced by the number of rows you received. See [`docs/editor/query-optimization.md`](editor/query-optimization.md).
 
-Not every engine can serve a positive `offset`. Cassandra and Elasticsearch answer one with HTTP 400 rather than silently returning page one; MongoDB, Redis, LibreDB, Prometheus, InfluxDB (InfluxQL), Kafka, etcd, Neo4j, Milvus, Qdrant, Oxia, S3-compatible object storage and Firestore ignore it. `POST /api/db/provider-meta` reports each one's `capabilities.supportsResultPagination`, which is the same flag the app reads before offering its Load More control.
+Not every engine can serve a positive `offset`. Cassandra and Elasticsearch answer one with HTTP 400 rather than silently returning page one; MongoDB, Redis, LibreDB, Prometheus, InfluxDB (InfluxQL), Kafka, etcd, Neo4j, Milvus, Qdrant, Weaviate, Oxia, S3-compatible object storage and Firestore ignore it. `POST /api/db/provider-meta` reports each one's `capabilities.supportsResultPagination`, which is the same flag the app reads before offering its Load More control.
 
 **The database a run reads (optional):**
 ```json
@@ -589,7 +597,7 @@ The bound is read after the request body is parsed, because the type that select
 | `sql` is over the declared bound | `413` | `{ "error": "The statement is <n> bytes in UTF-8, over the <limit>-byte limit for this connection type. Shorten it to run it." }`, which never repeats the text |
 
 `POST /api/db/multi-query` refuses every connection whose type declares such a bound with `400 { "error": "This connection type runs one statement per request: send it to POST /api/db/query, because this route would split its text into several requests." }`, before it splits anything.
-Milvus and Qdrant each declare a bound of 1,048,576 bytes and InfluxDB (InfluxQL), Oxia, S3-compatible object storage, Kubernetes and Firestore one of 65,536 bytes each, and no other shipped engine declares one, so neither answer changes anything for a connection of another type.
+Milvus, Qdrant and Weaviate each declare a bound of 1,048,576 bytes and InfluxDB (InfluxQL), Oxia, S3-compatible object storage, Kubernetes and Firestore one of 65,536 bytes each, and no other shipped engine declares one, so neither answer changes anything for a connection of another type.
 
 **Bound parameters (optional):**
 ```json
@@ -1097,7 +1105,7 @@ Milvus's provider implements `engineUser()`: the Milvus user name, the user name
 | `vacuum` | VACUUM ANALYZE | - | VACUUM | Reclaim storage and update statistics |
 | `analyze` | ANALYZE | ANALYZE | ANALYZE | Update query planner statistics |
 | `reindex` | REINDEX | - | REINDEX | Rebuild indexes |
-| `optimize` | - | OPTIMIZE | - | Optimize table (MySQL only) |
+| `optimize` | - | OPTIMIZE | - | Optimize table (MySQL, SQL Server, Oracle, ClickHouse, DuckDB and Db2; each provider's doc under `docs/providers/` says what it runs) |
 | `check` | - | CHECK | PRAGMA integrity_check | Check table integrity |
 | `kill` | pg_terminate_backend | KILL | - | Terminate a session by PID |
 | `compact` | - | - | - | etcd: compact history to the current revision |
@@ -1897,7 +1905,7 @@ Opens a run and returns immediately; the drive happens in the background.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `mode` | string | Yes | `"planning"` or `"agent"`. A planning run's model is handed no tools and the run executes **no statement of yours and writes nothing**; it does not perform zero database operations — since 2026-08-15 the server reads the connection's schema — its catalog on PostgreSQL and SQLite, its provider's own inspection on every other engine — and the engine's estimated statistics where it holds any (PostgreSQL and SQLite), before the first turn, read-only and audited like every other agent read |
+| `mode` | string | Yes | `"planning"` or `"agent"`. A planning run's model is handed no tools and the run executes **no statement of yours and writes nothing**; it does not perform zero database operations — since 2026-08-15 the server reads the connection's schema — its catalog on PostgreSQL and SQLite, its provider's own inspection on every other engine — and the engine's estimated statistics where it holds any (PostgreSQL, SQLite and SQL Server), before the first turn, read-only and audited like every other agent read |
 | `workflowType` | string | No | `"investigation"` (the default), `"query-optimization"`, `"database-assessment"`, `"operations"` or `"data-analysis"`. An unrecognised value is **refused, not defaulted** |
 | `workflowSource` | string | No | How the workflow above was decided: `"inferred"` (a classifier read it off the objective) or `"chosen"` (a person picked it). Absent means `"chosen"`, which is what every request written before there was a classifier did. An unrecognised value is **refused, not defaulted**, because the surface reads this field back to decide whether to tell the user their workflow was inferred and offer to change it |
 | `workflowReading` | string | No | How that decision WENT, as against who made it: `"classified"` (a classifier named this workflow), `"unclassified"` (a classifier was asked and reached its fallback) or `"unrecorded"` (nothing classified anything — what a caller naming its own workflow sends). Absent means `"unrecorded"`. An unrecognised value is **refused, not defaulted**, for the reason `workflowSource` is: the surface reads this field back to choose which of three sentences it says about the run, and a fallback presented as a verdict is the one it may not say |
@@ -2432,7 +2440,7 @@ interface DatabaseConnection {
   registerMap?: string;    // Modbus only: the register map, as the JSON document the provider parses - a list of points, each naming a unit, a table, a zero-based PDU address and a type. Bounded at 65536 bytes, checked before the parse; public-classified, because Modbus TCP defines no authentication and the document carries nothing to leak
 }
 
-type DatabaseType = 'postgres' | 'mysql' | 'sqlite' | 'libsql' | 'duckdb' | 'mongodb' | 'redis' | 'oracle' | 'db2' | 'mssql' | 'libredb' | 'couchbase' | 'clickhouse' | 'druid' | 'elasticsearch' | 'opensearch' | 'trino' | 'bigquery' | 'snowflake' | 'spark' | 'cassandra' | 'prometheus' | 'kafka' | 'etcd' | 'neo4j' | 'milvus' | 'qdrant' | 'influxdb' | 'influxdb3' | 'oxia' | 'databend' | 's3' | 'kubernetes' | 'mqtt' | 'firestore' | 'rabbitmq' | 'opcua' | 'mtconnect' | 'modbus' | 'netconf' | 'snmp' | 'sparkplug';
+type DatabaseType = 'postgres' | 'mysql' | 'sqlite' | 'libsql' | 'duckdb' | 'mongodb' | 'redis' | 'oracle' | 'db2' | 'mssql' | 'libredb' | 'couchbase' | 'clickhouse' | 'druid' | 'elasticsearch' | 'opensearch' | 'trino' | 'bigquery' | 'snowflake' | 'spark' | 'cassandra' | 'prometheus' | 'kafka' | 'etcd' | 'neo4j' | 'milvus' | 'qdrant' | 'weaviate' | 'influxdb' | 'influxdb3' | 'oxia' | 'databend' | 's3' | 'kubernetes' | 'mqtt' | 'firestore' | 'rabbitmq' | 'opcua' | 'mtconnect' | 'modbus' | 'netconf' | 'snmp' | 'sparkplug';
 type ConnectionEnvironment = 'production' | 'staging' | 'development' | 'local' | 'other';
 ```
 
@@ -2647,6 +2655,7 @@ These are the values of the `code` field emitted by `createErrorResponse` (`src/
 | `TRANSACTION_CREDENTIAL_CHANGED` | Governance mode only: the caller's grant level or the connection's credential changed while the caller's transaction was open, so `POST /api/db/transaction` rolled it back and answered this instead of the request (409), with `rolledBack` saying whether the rollback was confirmed. Answered by the route rather than `createErrorResponse`; see [Connections under governance](#connections-under-governance) |
 | `AI_DISABLED` | Governance mode only: the control plane set the runtime setting `ai.enabled` to `false`, so a route of the AI bucket refused a signed-in caller before any LLM provider was built (403). Answered by the route guard rather than `createErrorResponse`; see [AI API](#ai-api) |
 | `AUTH_REQUIRED` | No Studio session, or one that no longer verifies (401). Answered by the middleware and the route-level session checks rather than `createErrorResponse`; the only 401 the browser answers by sending the user to sign in |
+| `ACCOUNT_STORE_UNAVAILABLE` | The account store could not be read to check whether the signed-in account is still permitted (503). Answered by the route guard (`guardRoute`), `GET /api/auth/me`, and `/api/mcp` without deleting the session cookie; a client keeps its credentials and retries (#1942) |
 | `IDENTITY_PROVIDER_UNAVAILABLE` | A bearer access token could not be verified because the identity provider's discovery document or key set could not be read (503). Answered by the middleware; a client keeps its token and retries ([OIDC.md](./OIDC.md#bearer-access-tokens-for-native-clients)) |
 | `BEARER_NO_ROLE` | A bearer access token verified, but its claims map to no role Studio accepts (403). Answered by the middleware; a fresh token is refused the same way until an administrator changes the account |
 | `BEARER_NO_IDENTITY` | A bearer access token verified, but it carries no `sub` or no username Studio can use (403). Answered by the middleware; a fresh token is refused the same way until an administrator changes the account |

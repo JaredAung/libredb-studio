@@ -2,8 +2,8 @@
   "name": "libredb-studio",
   "publisher": "libredb",
   "displayName": "LibreDB Studio",
-  "description": "Browse and query PostgreSQL, SQL Server, MySQL and MongoDB databases with LibreDB Studio.",
-  "version": "0.2.0",
+  "description": "Browse and query PostgreSQL, MySQL, SQL Server, MongoDB, Redis, ClickHouse, Elasticsearch, Kafka and many more databases with LibreDB Studio.",
+  "version": "0.4.0",
   "private": true,
   "license": "MIT",
   "repository": {
@@ -24,9 +24,34 @@
   ],
   "keywords": [
     "PostgreSQL",
-    "SQL Server",
     "MySQL",
+    "SQLite",
+    "SQL Server",
     "MongoDB",
+    "Couchbase",
+    "Redis",
+    "ClickHouse",
+    "Apache Druid",
+    "Elasticsearch",
+    "OpenSearch",
+    "Trino",
+    "Apache Cassandra",
+    "libSQL",
+    "Prometheus",
+    "Apache Kafka",
+    "etcd",
+    "Neo4j",
+    "Milvus",
+    "Qdrant",
+    "InfluxDB (InfluxQL)",
+    "InfluxDB 3 (SQL)",
+    "Oxia",
+    "Databend",
+    "BigQuery",
+    "S3-compatible object storage",
+    "Kubernetes",
+    "MQTT",
+    "Firestore",
     "SQL"
   ],
   "capabilities": {
@@ -304,7 +329,7 @@
     "vscode:prepublish": "npm run build"
   },
   "devDependencies": {
-    "@happy-dom/global-registrator": "21.0.3",
+    "@happy-dom/global-registrator": "21.0.4",
     "@playwright/test": "1.64.1",
     "@sinonjs/fake-timers": "15.4.0",
     "@tailwindcss/cli": "4.3.3",
@@ -329,6 +354,6 @@
     }
   },
   "dependencies": {
-    "vscode-jsonrpc": "9.0.3"
+    "vscode-jsonrpc": "10.0.0"
   }
 }
